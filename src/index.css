@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #F6F7FB;
+  color: #12172B;
+}
+h1, h2, h3, h4, .font-display { font-family: 'Space Grotesk', sans-serif; }
+.font-mono-num { font-family: 'IBM Plex Mono', monospace; }
+
+:focus-visible {
+  outline: 2px solid #3454D1;
+  outline-offset: 2px;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Subtle lift on hover for every card built with the shadow-card utility —
+   applies app-wide without needing to touch each page. */
+.shadow-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+a.shadow-card:hover,
+button.shadow-card:hover,
+.shadow-card[role="button"]:hover,
+.shadow-card.cursor-pointer:hover {
+  box-shadow: 0 2px 6px rgba(18,23,43,0.07), 0 4px 20px rgba(18,23,43,0.07);
+  transform: translateY(-1px);
+}
+
+/* Smooth, consistent transitions on every interactive element by default */
+button, a, input, select, textarea {
+  transition-property: background-color, border-color, color, opacity, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
