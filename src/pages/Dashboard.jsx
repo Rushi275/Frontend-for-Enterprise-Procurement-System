@@ -1,6 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Check, X, Wallet, ListChecks, Building2, Search, XCircle, ChevronDown, TrendingUp,
+  Check,
+  X,
+  Wallet,
+  ListChecks,
+  Building2,
+  Search,
+  XCircle,
+  ChevronDown,
+  TrendingUp,
+  ArrowLeft,
+  User,
+  Package,
+  Building,
+  Tag,
+  Hash,
+  IndianRupee,
+  CalendarDays,
 } from "lucide-react";
 import { listRequests, updateRequestStatus } from "../api/requests";
 import { useAuth } from "../context/AuthContext";
@@ -27,6 +44,7 @@ const TIMEFRAMES = [
 ];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
   const [requests, setRequests] = useState([]);
@@ -186,22 +204,47 @@ export default function Dashboard() {
     REJECTED: ["Request rejected.", "info"],
   };
 
-  async function act(id, status) {
-    setBusyId(id);
-    try {
-      await updateRequestStatus(id, status);
-      await refresh();
-      const [message, type] = STATUS_TOAST_LABEL[status] ?? ["Status updated.", "success"];
-      showToast(message, type);
-    } catch (err) {
-      showToast(
-        err.response?.data?.message || err.message || "Couldn't update this request. Try again.",
-        "error"
+ async function act(id, status) {
+  setBusyId(id);
+
+  try {
+    await updateRequestStatus(id, status);
+
+    const [message, type] =
+      STATUS_TOAST_LABEL[status] ?? ["Status updated.", "success"];
+
+    showToast(message, type);
+
+    if (status === "APPROVED") {
+      const approvedRequest = inRange.find(
+        (request) => request.requestId === id
       );
-    } finally {
-      setBusyId(null);
+
+      if (approvedRequest) {
+        navigate("/payment", {
+          state: {
+            request: {
+              ...approvedRequest,
+              status: "APPROVED"
+            }
+          }
+        });
+        return;
+      }
     }
+
+    await refresh();
+  } catch (err) {
+    showToast(
+      err.response?.data?.message ||
+        err.message ||
+        "Couldn't update this request. Try again.",
+      "error"
+    );
+  } finally {
+    setBusyId(null);
   }
+}
 
   const donutSlices = buildDonutSlices(byStatus, inRange.length);
   const deliveredPct = inRange.length
@@ -600,6 +643,7 @@ function ApprovalQueue({
   onReject,
 }) {
   const [confirmingRejectId, setConfirmingRejectId] = useState(null);
+   const [selectedRequest, setSelectedRequest] = useState(null);
 
   function handleRejectClick(id) {
     if (confirmingRejectId === id) {
@@ -611,9 +655,15 @@ function ApprovalQueue({
   }
 
   return (
+  <>
     <div className="bg-card rounded-card shadow-card border border-ink/5 p-6 mb-6 last:mb-0">
-      <h2 className="font-display font-semibold text-ink mb-1">{title}</h2>
-      <p className="text-sm text-slate mb-5">{subtitle}</p>
+      <h2 className="font-display font-semibold text-ink mb-1">
+        {title}
+      </h2>
+
+      <p className="text-sm text-slate mb-5">
+        {subtitle}
+      </p>
 
       {loading ? (
         <SkeletonRows />
@@ -626,39 +676,40 @@ function ApprovalQueue({
       ) : (
         <div className="divide-y divide-ink/5">
           {items.map((r) => {
-            const isOpen = expandedId === r.requestId;
-            const isConfirmingReject = confirmingRejectId === r.requestId;
+            const isConfirmingReject =
+              confirmingRejectId === r.requestId;
+
             return (
               <div key={r.requestId}>
                 <div className="flex items-start justify-between gap-4 py-4">
                   <div
                     className="min-w-0 flex items-start gap-3 cursor-pointer flex-1"
-                    onClick={() => setExpandedId(isOpen ? null : r.requestId)}
+                    onClick={() => setSelectedRequest(r)}
                   >
                     <div className="h-9 w-9 rounded-full bg-signal-light text-signal flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5">
                       {initials(r.user?.name)}
                     </div>
-                    <ChevronDown
-                      size={14}
-                      className={`text-slate-light shrink-0 mt-1.5 transition-transform ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
-                    />
+
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-ink">
                         {r.product?.name ?? "Item request"}
                       </div>
+
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-light mt-1">
                         <span>
                           Requester:{" "}
-                          <span className="text-slate font-medium">{r.user?.name ?? "—"}</span>
+                          <span className="text-slate font-medium">
+                            {r.user?.name ?? "—"}
+                          </span>
                         </span>
+
                         <span>
                           User ID:{" "}
                           <span className="font-mono-num text-slate font-medium">
                             #{r.user?.userId ?? "—"}
                           </span>
                         </span>
+
                         <span>
                           Category:{" "}
                           <span className="text-slate font-medium">
@@ -666,6 +717,7 @@ function ApprovalQueue({
                           </span>
                         </span>
                       </div>
+
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-light mt-1">
                         <span>
                           Qty:{" "}
@@ -673,6 +725,7 @@ function ApprovalQueue({
                             {r.numberOfQuantities}
                           </span>
                         </span>
+
                         <span>
                           Amount:{" "}
                           <span className="font-mono-num text-ink font-semibold">
@@ -682,6 +735,7 @@ function ApprovalQueue({
                       </div>
                     </div>
                   </div>
+
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       disabled={busyId === r.requestId}
@@ -693,8 +747,12 @@ function ApprovalQueue({
                       }`}
                     >
                       <X size={13} />
-                      {isConfirmingReject ? "Confirm reject?" : "Reject"}
+
+                      {isConfirmingReject
+                        ? "Confirm reject?"
+                        : "Reject"}
                     </button>
+
                     <button
                       disabled={busyId === r.requestId}
                       onClick={() => onApprove(r.requestId)}
@@ -705,20 +763,201 @@ function ApprovalQueue({
                     </button>
                   </div>
                 </div>
-                {isOpen && (
-                  <div className="pb-5 pl-[4.75rem]">
-                    <ApprovalTrail status={r.status} updatedDate={r.updatedDate} />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
     </div>
+
+    <RequestApprovalPanel
+      request={selectedRequest}
+      onClose={() => setSelectedRequest(null)}
+      onApprove={() => {
+        onApprove(selectedRequest.requestId);
+        setSelectedRequest(null);
+      }}
+      onReject={() => {
+        onReject(selectedRequest.requestId);
+        setSelectedRequest(null);
+      }}
+      busy={
+        selectedRequest
+          ? busyId === selectedRequest.requestId
+          : false
+      }
+    />
+  </>
+);
+}
+function RequestApprovalPanel({ request, onClose, onApprove, onReject, busy }) {
+  if (!request) return null;
+
+  const status = request.status;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto bg-card rounded-2xl shadow-2xl border border-ink/10">
+        <div className="sticky top-0 z-10 bg-card border-b border-ink/10 px-6 py-4 flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 text-sm text-slate hover:text-ink transition"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+
+          <div className="text-xs font-mono-num text-slate-light">
+            REQUEST #{String(request.requestId).padStart(4, "0")}
+          </div>
+        </div>
+
+        <div className="p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-light mb-2">
+                Procurement request
+              </p>
+
+              <h2 className="font-display text-3xl font-semibold text-ink">
+                {request.product?.name ?? "Item request"}
+              </h2>
+
+              <p className="text-sm text-slate mt-2">
+                Submitted by {request.user?.name ?? "Unknown requester"}
+              </p>
+            </div>
+
+            <StatusPill status={status} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <DetailCard
+              icon={User}
+              label="Requester"
+              value={request.user?.name ?? "—"}
+            />
+
+            <DetailCard
+              icon={Building}
+              label="Department"
+              value={request.department?.departmentName ?? "—"}
+            />
+
+            <DetailCard
+              icon={Tag}
+              label="Category"
+              value={request.category?.categoryName ?? "—"}
+            />
+
+            <DetailCard
+              icon={Package}
+              label="Product"
+              value={request.product?.name ?? "—"}
+            />
+
+            <DetailCard
+              icon={Hash}
+              label="Quantity"
+              value={request.numberOfQuantities ?? "—"}
+            />
+
+            <DetailCard
+              icon={IndianRupee}
+              label="Total amount"
+              value={`₹${(request.totalPrice ?? 0).toLocaleString("en-IN")}`}
+            />
+          </div>
+
+          <div className="bg-ink/[0.02] rounded-xl border border-ink/5 p-6 mb-8">
+            <div className="flex items-center gap-2 mb-6">
+              <CalendarDays size={16} className="text-signal" />
+
+              <h3 className="font-display font-semibold text-ink">
+                Approval journey
+              </h3>
+            </div>
+
+            <ApprovalTrail
+              status={request.status}
+              updatedDate={request.updatedDate}
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+            <div className="text-xs text-slate-light">
+              Created{" "}
+              {request.createdDate
+                ? new Date(request.createdDate).toLocaleString("en-IN")
+                : "—"}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {status === "PENDING" && (
+                <>
+                  <button
+                    disabled={busy}
+                    onClick={onReject}
+                    className="flex items-center gap-2 rounded-lg bg-coral-light text-coral px-5 py-2.5 text-sm font-medium hover:opacity-80 disabled:opacity-40 transition"
+                  >
+                    <X size={15} />
+                    Reject request
+                  </button>
+
+                  <button
+                    disabled={busy}
+                    onClick={onApprove}
+                    className="flex items-center gap-2 rounded-lg bg-good text-white px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-40 transition"
+                  >
+                    <Check size={15} />
+                    Approve request
+                  </button>
+                </>
+              )}
+
+              {status === "MANAGER_APPROVED" && (
+                <>
+                  <button
+                    disabled={busy}
+                    onClick={onReject}
+                    className="flex items-center gap-2 rounded-lg bg-coral-light text-coral px-5 py-2.5 text-sm font-medium hover:opacity-80 disabled:opacity-40 transition"
+                  >
+                    <X size={15} />
+                    Reject request
+                  </button>
+
+                  <button
+                    disabled={busy}
+                    onClick={onApprove}
+                    className="flex items-center gap-2 rounded-lg bg-good text-white px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-40 transition"
+                  >
+                    <Check size={15} />
+                    Give final approval
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
+function DetailCard({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-xl border border-ink/10 bg-white p-4">
+      <div className="flex items-center gap-2 text-xs text-slate-light mb-2">
+        <Icon size={14} />
+        {label}
+      </div>
+
+      <div className="text-sm font-medium text-ink truncate">
+        {value}
+      </div>
+    </div>
+  );
+}
 function StatCard({ label, value, caption, tone }) {
   const dots = {
     ink: "bg-ink",

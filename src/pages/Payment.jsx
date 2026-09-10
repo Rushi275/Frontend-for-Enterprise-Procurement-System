@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { CreditCard, Landmark, CheckCircle2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { listRequests } from "../api/requests";
-import { listSuppliers, processPayment } from "../api/resources";
+import {
+  listSuppliers,
+  processPayment,
+  listPayments
+} from "../api/resources";
 import { apiErrorMessage } from "../api/client";
 import Topbar from "../components/Topbar";
 import { EmptyState, SkeletonRows } from "./Home";
@@ -9,15 +15,334 @@ import { useToast } from "../context/ToastContext";
 
 export default function Payment() {
   const { showToast } = useToast();
-  const [requests, setRequests] = useState([]); const [suppliers, setSuppliers] = useState([]); const [loading, setLoading] = useState(true); const [selected, setSelected] = useState(null); const [form, setForm] = useState({ supplierId: "", mpin: "", paymentMethod: "UPI" }); const [saving, setSaving] = useState(false); const [receipt, setReceipt] = useState(null);
-  async function load() { setLoading(true); try { const [all, vendorRows] = await Promise.all([listRequests(), listSuppliers()]); setRequests(all.filter((request) => request.status === "APPROVED")); setSuppliers(vendorRows); } catch (err) { showToast(apiErrorMessage(err), "error"); } finally { setLoading(false); } }
-  useEffect(() => { load(); }, []);
-  const eligibleSuppliers = useMemo(() => selected ? suppliers.filter((supplier) => supplier.product?.productId === selected.product?.productId) : [], [selected, suppliers]);
-  async function pay(e) { e.preventDefault(); setSaving(true); try { const result = await processPayment({ requestId: selected.requestId, supplierId: Number(form.supplierId), mpin: form.mpin, paymentMethod: form.paymentMethod }); setReceipt(result); setSelected(null); setForm({ supplierId: "", mpin: "", paymentMethod: "UPI" }); setRequests((rows) => rows.filter((row) => row.requestId !== result.requestId)); showToast("Payment completed and supplier order created.", "success"); } catch (err) { showToast(apiErrorMessage(err), "error"); } finally { setSaving(false); } }
-  return <div><Topbar title="Payments" subtitle="Process approved requests with a supplier's configured MPIN." />
-    <div className="bg-signal-light text-signal rounded-lg text-xs px-4 py-3 mb-6">Payments use the backend's recorded UPI or card method. No card number is collected or stored by this frontend.</div>
-    {loading ? <SkeletonRows /> : requests.length === 0 ? <div className="bg-card rounded-card shadow-card border border-ink/5 p-6"><EmptyState icon={Landmark} title="No approved requests awaiting payment" body="Requests approved by admin appear here until a supplier payment is processed." /></div> : <div className="space-y-3">{requests.map((request) => <div key={request.requestId} className="bg-card rounded-card shadow-card border border-ink/5 p-5 flex items-center justify-between gap-4"><div><p className="text-sm font-semibold text-ink">{request.product?.name || "Procurement request"}</p><p className="text-xs text-slate mt-1">Request #{request.requestId} · Quantity {request.numberOfQuantities}</p></div><div className="text-right"><p className="font-mono-num text-sm font-semibold text-ink">₹{(request.totalPrice || 0).toLocaleString("en-IN")}</p><button onClick={() => setSelected(request)} className="text-xs text-signal font-medium mt-1 hover:underline">Process payment</button></div></div>)}</div>}
-    {receipt && <div className="mt-6 bg-good-light text-good rounded-lg p-4 flex gap-3 text-sm"><CheckCircle2 size={18}/><div><p className="font-medium">Payment successful</p><p className="mt-1">Transaction {receipt.transactionId} · ₹{(receipt.amount || 0).toLocaleString("en-IN")}</p></div></div>}
-    {selected && <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4"><form onSubmit={pay} className="bg-white rounded-card shadow-card max-w-md w-full p-6 space-y-4"><div className="flex justify-between"><div><h2 className="font-display font-semibold text-ink">Process payment</h2><p className="text-xs text-slate mt-1">{selected.product?.name} · ₹{(selected.totalPrice || 0).toLocaleString("en-IN")}</p></div><button type="button" onClick={() => setSelected(null)} className="text-slate">×</button></div><label className="block text-xs font-medium text-slate">Supplier<select required value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="mt-1.5 w-full rounded-lg border border-ink/10 px-3 py-2.5 text-sm"><option value="">Select an eligible supplier</option>{eligibleSuppliers.map((supplier) => <option key={supplier.supplierId} value={supplier.supplierId}>{supplier.name}</option>)}</select></label>{eligibleSuppliers.length === 0 && <p className="text-xs text-coral">No supplier is linked to this product. Link one in Suppliers before paying.</p>}<label className="block text-xs font-medium text-slate">Payment method<select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} className="mt-1.5 w-full rounded-lg border border-ink/10 px-3 py-2.5 text-sm"><option value="UPI">UPI</option><option value="CARD">Card</option></select></label><label className="block text-xs font-medium text-slate">Supplier MPIN<input required type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength="4" value={form.mpin} onChange={(e) => setForm({ ...form, mpin: e.target.value })} className="mt-1.5 w-full rounded-lg border border-ink/10 px-3 py-2.5 text-sm" placeholder="4 digits"/></label><button disabled={saving || !eligibleSuppliers.length} className="w-full bg-signal text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"><CreditCard size={15}/>{saving ? "Processing…" : "Confirm payment"}</button></form></div>}
-  </div>;
+  const location = useLocation();
+
+  const [requests, setRequests] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({
+    supplierId: "",
+    mpin: "",
+    paymentMethod: "UPI"
+  });
+  const [saving, setSaving] = useState(false);
+  const [receipt, setReceipt] = useState(null);
+
+  async function load() {
+    setLoading(true);
+
+    try {
+      const [all, vendorRows, payments] = await Promise.all([
+        listRequests(),
+        listSuppliers(),
+        listPayments()
+      ]);
+
+      const paidRequestIds = new Set(
+        payments.map((payment) => payment.requestId)
+      );
+
+      const unpaidApprovedRequests = all.filter(
+        (request) =>
+          request.status === "APPROVED" &&
+          !paidRequestIds.has(request.requestId)
+      );
+
+      setRequests(unpaidApprovedRequests);
+      setSuppliers(vendorRows);
+
+      const requestedPayment = location.state?.request;
+
+      if (
+        requestedPayment &&
+        requestedPayment.status === "APPROVED" &&
+        !paidRequestIds.has(requestedPayment.requestId)
+      ) {
+        setSelected(requestedPayment);
+      }
+    } catch (err) {
+      showToast(apiErrorMessage(err), "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [location.state]);
+
+  const eligibleSuppliers = useMemo(() => {
+    if (!selected?.product?.productId) {
+      return [];
+    }
+
+    return suppliers.filter(
+      (supplier) =>
+        supplier.product?.productId === selected.product.productId
+    );
+  }, [selected, suppliers]);
+
+  useEffect(() => {
+    if (selected && eligibleSuppliers.length === 1) {
+      setForm((current) => ({
+        ...current,
+        supplierId: String(eligibleSuppliers[0].supplierId)
+      }));
+    }
+  }, [selected, eligibleSuppliers]);
+
+  async function pay(e) {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const result = await processPayment({
+        requestId: selected.requestId,
+        supplierId: Number(form.supplierId),
+        mpin: form.mpin,
+        paymentMethod: form.paymentMethod
+      });
+
+      setReceipt(result);
+      setSelected(null);
+
+      setForm({
+        supplierId: "",
+        mpin: "",
+        paymentMethod: "UPI"
+      });
+
+      setRequests((rows) =>
+        rows.filter((row) => row.requestId !== result.requestId)
+      );
+
+      showToast(
+        "Payment completed and supplier order created.",
+        "success"
+      );
+    } catch (err) {
+      showToast(apiErrorMessage(err), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <Topbar
+        title="Payments"
+        subtitle="Process approved requests with a supplier's configured MPIN."
+      />
+
+      <div className="bg-signal-light text-signal rounded-lg text-xs px-4 py-3 mb-6">
+        Payments use the backend's recorded UPI or card method. No card
+        number is collected or stored by this frontend.
+      </div>
+
+      {loading ? (
+        <SkeletonRows />
+      ) : requests.length === 0 ? (
+        <div className="bg-card rounded-card shadow-card border border-ink/5 p-6">
+          <EmptyState
+            icon={Landmark}
+            title="No approved requests awaiting payment"
+            body="Requests approved by admin appear here until a supplier payment is processed."
+          />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {requests.map((request) => (
+            <div
+              key={request.requestId}
+              className="bg-card rounded-card shadow-card border border-ink/5 p-5 flex items-center justify-between gap-4"
+            >
+              <div>
+                <p className="text-sm font-semibold text-ink">
+                  {request.product?.name || "Procurement request"}
+                </p>
+
+                <p className="text-xs text-slate mt-1">
+                  Request #{request.requestId} · Quantity{" "}
+                  {request.numberOfQuantities}
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="font-mono-num text-sm font-semibold text-ink">
+                  ₹{(request.totalPrice || 0).toLocaleString("en-IN")}
+                </p>
+
+                <button
+                  onClick={() => setSelected(request)}
+                  className="text-xs text-signal font-medium mt-1 hover:underline"
+                >
+                  Process payment
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {receipt && (
+        <div className="mt-6 bg-good-light text-good rounded-lg p-4 flex gap-3 text-sm">
+          <CheckCircle2 size={18} />
+
+          <div>
+            <p className="font-medium">Payment successful</p>
+
+            <p className="mt-1">
+              Transaction {receipt.transactionId} · ₹
+              {(receipt.amount || 0).toLocaleString("en-IN")}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={pay}
+            className="bg-white rounded-card shadow-card max-w-md w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto"
+          >
+            <div className="flex justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-light">
+                  Supplier payment
+                </p>
+
+                <h2 className="font-display font-semibold text-ink text-xl mt-1">
+                  Process payment
+                </h2>
+
+                <p className="text-xs text-slate mt-1">
+                  {selected.product?.name} · ₹
+                  {(selected.totalPrice || 0).toLocaleString("en-IN")}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="text-slate hover:text-ink text-xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <label className="block text-xs font-medium text-slate">
+              Supplier
+
+              <select
+                required
+                value={form.supplierId}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    supplierId: e.target.value
+                  })
+                }
+                className="mt-1.5 w-full rounded-lg border border-ink/10 px-3 py-2.5 text-sm"
+              >
+                <option value="">Select an eligible supplier</option>
+
+                {eligibleSuppliers.map((supplier) => (
+                  <option
+                    key={supplier.supplierId}
+                    value={supplier.supplierId}
+                  >
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {eligibleSuppliers.length === 0 && (
+              <p className="text-xs text-coral">
+                No supplier is linked to this product. Link one in Suppliers
+                before paying.
+              </p>
+            )}
+
+            <label className="block text-xs font-medium text-slate">
+              Payment method
+
+              <select
+                value={form.paymentMethod}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    paymentMethod: e.target.value
+                  })
+                }
+                className="mt-1.5 w-full rounded-lg border border-ink/10 px-3 py-2.5 text-sm"
+              >
+                <option value="UPI">UPI</option>
+                <option value="CARD">Card</option>
+              </select>
+            </label>
+
+            {form.paymentMethod === "UPI" && (
+              <div className="rounded-xl border border-ink/10 bg-slate-50 p-5 text-center">
+                <p className="text-sm font-semibold text-ink mb-1">
+                  Scan to Pay
+                </p>
+
+                <p className="text-xs text-slate mb-4">
+                  Scan this demo UPI QR to complete the payment
+                </p>
+
+                <div className="inline-flex bg-white p-3 rounded-xl border border-ink/10">
+                  <QRCodeSVG
+                    value={`upi://pay?pa=enterprise@upi&pn=Enterprise%20Procurement&am=${selected.totalPrice || 0}&cu=INR`}
+                    size={180}
+                    level="M"
+                  />
+                </div>
+
+                <p className="font-mono-num text-lg font-semibold text-ink mt-4">
+                  ₹{(selected.totalPrice || 0).toLocaleString("en-IN")}
+                </p>
+
+                <p className="text-[11px] text-slate-light mt-1">
+                  enterprise@upi
+                </p>
+              </div>
+            )}
+
+            <label className="block text-xs font-medium text-slate">
+              Supplier MPIN
+
+              <input
+                required
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]{4}"
+                maxLength="4"
+                value={form.mpin}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    mpin: e.target.value
+                  })
+                }
+                className="mt-1.5 w-full rounded-lg border border-ink/10 px-3 py-2.5 text-sm"
+                placeholder="4 digits"
+              />
+            </label>
+
+            <button
+              disabled={saving || eligibleSuppliers.length !== 1}
+              className="w-full bg-signal text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <CreditCard size={15} />
+
+              {saving ? "Processing…" : "Confirm payment"}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
 }

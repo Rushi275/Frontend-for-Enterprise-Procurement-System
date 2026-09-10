@@ -28,6 +28,7 @@ export const updateApprovalHierarchy = (id, payload) => data(client.put(`/approv
 export const deleteApprovalHierarchy = (id) => client.delete(`/approval-hierarchies/${id}`);
 
 export const processPayment = (payload) => data(client.post("/payments", payload));
+export const listPayments = () => data(client.get("/payments"));
 export const listSupplierOrders = () => data(client.get("/supplier/orders"));
 export const updateSupplierOrderStatus = (id, status) => data(client.put(`/supplier/orders/${id}/status`, { status }));
 export const getOrderTracking = (id) => data(client.get(`/orders/${id}/tracking`));
