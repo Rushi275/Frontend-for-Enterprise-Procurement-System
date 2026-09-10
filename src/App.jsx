@@ -8,7 +8,6 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
-import TrackOrder from "./pages/TrackOrder";
 import Payment from "./pages/Payment";
 import AdminManagement from "./pages/AdminManagement";
 import SupplierOrders from "./pages/SupplierOrders";
@@ -17,7 +16,11 @@ import SupplierPayments from "./pages/SupplierPayments";
 function RequireRole({ role, children }) {
   const { user } = useAuth();
   const roles = Array.isArray(role) ? role : [role];
-  if (!roles.includes(user?.role)) return <Navigate to="/home" replace />;
+
+  if (!roles.includes(user?.role)) {
+    return <Navigate to="/home" replace />;
+  }
+
   return children;
 }
 
@@ -31,11 +34,42 @@ function App() {
             <Route path="/register" element={<Register />} />
 
             <Route element={<Layout />}>
-              <Route path="/home" element={<RequireRole role={["EMPLOYEE", "MANAGER", "ADMIN"]}><Home /></RequireRole>} />
-              <Route path="/dashboard" element={<RequireRole role={["EMPLOYEE", "MANAGER", "ADMIN"]}><Dashboard /></RequireRole>} />
-              <Route path="/orders" element={<RequireRole role={["EMPLOYEE", "MANAGER"]}><Orders /></RequireRole>} />
-              <Route path="/products" element={<RequireRole role={["EMPLOYEE", "MANAGER"]}><Products /></RequireRole>} />
-              <Route path="/track" element={<RequireRole role={["EMPLOYEE", "MANAGER"]}><TrackOrder /></RequireRole>} />
+              <Route
+                path="/home"
+                element={
+                  <RequireRole role={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+                    <Home />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireRole role={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+                    <Dashboard />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/orders"
+                element={
+                  <RequireRole role={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+                    <Orders />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/products"
+                element={
+                  <RequireRole role={["EMPLOYEE", "MANAGER"]}>
+                    <Products />
+                  </RequireRole>
+                }
+              />
+
               <Route
                 path="/payment"
                 element={
@@ -44,10 +78,42 @@ function App() {
                   </RequireRole>
                 }
               />
-              <Route path="/management" element={<RequireRole role="ADMIN"><AdminManagement /></RequireRole>} />
-              <Route path="/supplier-orders" element={<RequireRole role="SUPPLIER"><SupplierOrders /></RequireRole>} />
-              <Route path="/supplier-payments" element={<RequireRole role="SUPPLIER"><SupplierPayments /></RequireRole>} />
-              <Route path="/supplier-products" element={<RequireRole role="SUPPLIER"><AdminManagement supplierMode /></RequireRole>} />
+
+              <Route
+                path="/management"
+                element={
+                  <RequireRole role="ADMIN">
+                    <AdminManagement />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/supplier-orders"
+                element={
+                  <RequireRole role="SUPPLIER">
+                    <SupplierOrders />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/supplier-payments"
+                element={
+                  <RequireRole role="SUPPLIER">
+                    <SupplierPayments />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/supplier-products"
+                element={
+                  <RequireRole role="SUPPLIER">
+                    <AdminManagement supplierMode />
+                  </RequireRole>
+                }
+              />
             </Route>
 
             <Route path="/" element={<Navigate to="/home" replace />} />
