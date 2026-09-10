@@ -8,7 +8,8 @@ import {
   Package,
   X,
   Settings,
-  Landmark
+  Landmark,
+  History
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -56,6 +57,12 @@ const NAV_ITEMS = [
     roles: ["ADMIN"]
   },
   {
+    to: "/supplier-dashboard",
+    label: "Dashboard",
+    icon: LayoutGrid,
+    roles: ["SUPPLIER"]
+  },
+  {
     to: "/supplier-orders",
     label: "Supplier orders",
     icon: ClipboardList,
@@ -71,6 +78,12 @@ const NAV_ITEMS = [
     to: "/supplier-payments",
     label: "Payment history",
     icon: Landmark,
+    roles: ["SUPPLIER"]
+  },
+  {
+    to: "/supplier-history",
+    label: "Order history",
+    icon: History,
     roles: ["SUPPLIER"]
   }
 ];

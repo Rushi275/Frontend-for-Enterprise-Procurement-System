@@ -26,7 +26,7 @@ export default function Layout() {
           <div className="hidden lg:block" />
           {user?.role !== "ADMIN" && <NotificationBell />}
         </div>
-        <main className="flex-1 px-5 sm:px-10 py-6 sm:py-8 max-w-6xl w-full">
+        <main className="flex-1 w-full px-5 sm:px-10 py-6 sm:py-8">
           <Outlet />
         </main>
       </div>

@@ -30,6 +30,7 @@ export const deleteApprovalHierarchy = (id) => client.delete(`/approval-hierarch
 export const processPayment = (payload) => data(client.post("/payments", payload));
 export const listPayments = () => data(client.get("/payments"));
 export const listSupplierOrders = () => data(client.get("/supplier/orders"));
+export const listSupplierPayments = () =>data(client.get("/supplier/payments"));
 export const updateSupplierOrderStatus = (id, status) => data(client.put(`/supplier/orders/${id}/status`, { status }));
 export const getOrderTracking = (requestId) =>data(client.get(`/orders/request/${requestId}/tracking`));
 export const downloadBlob = (url) => client.get(url, { responseType: "blob" }).then((response) => response.data);

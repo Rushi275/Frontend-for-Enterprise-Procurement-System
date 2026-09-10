@@ -10,8 +10,10 @@ import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import Payment from "./pages/Payment";
 import AdminManagement from "./pages/AdminManagement";
+import SupplierDashboard from "./pages/SupplierDashboard";
 import SupplierOrders from "./pages/SupplierOrders";
 import SupplierPayments from "./pages/SupplierPayments";
+import SupplierOrderHistory from "./pages/SupplierOrderHistory";
 
 function RequireRole({ role, children }) {
   const { user } = useAuth();
@@ -89,10 +91,28 @@ function App() {
               />
 
               <Route
+                path="/supplier-dashboard"
+                element={
+                  <RequireRole role="SUPPLIER">
+                    <SupplierDashboard />
+                  </RequireRole>
+                }
+              />
+
+              <Route
                 path="/supplier-orders"
                 element={
                   <RequireRole role="SUPPLIER">
                     <SupplierOrders />
+                  </RequireRole>
+                }
+              />
+
+              <Route
+                path="/supplier-products"
+                element={
+                  <RequireRole role="SUPPLIER">
+                    <AdminManagement supplierMode />
                   </RequireRole>
                 }
               />
@@ -107,10 +127,10 @@ function App() {
               />
 
               <Route
-                path="/supplier-products"
+                path="/supplier-history"
                 element={
                   <RequireRole role="SUPPLIER">
-                    <AdminManagement supplierMode />
+                    <SupplierOrderHistory />
                   </RequireRole>
                 }
               />
